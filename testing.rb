@@ -1,23 +1,24 @@
 require 'rubygems'
 require 'sinatra'
+require 'haml'
 $: << File.join(File.dirname(__FILE__), 'maromi', 'lib')
 
 load 'maromi.rb'
 
-use Maromi
+use Maromi, :database => 'dtb_dev', :adapter => 'postgres'
 
-get '/' do
-  "hey"
-end
-
-get '/maromi' do
-  p maromi
+get '/toaster' do
+  require_oauth_authentication!
+  consumer.user_id.to_s
 end
 
 get '/oauth/authorize' do
   haml :request_for_authorization
 end
 
+post '/oauth/authorize' do
+  consumer.authorized! :by => 1, :to => 'read'
+end
 
 get '/oauth/consumers/new' do
   haml :new_oauth_consumer
@@ -36,14 +37,18 @@ __END__
 
 @@ request_for_authorization
 you are about to authorize
-%b= consumer_name
+%b= consumer.name || consumer.callback
+%form{:method => 'post', :action => '/oauth/authorize'}
+  Sound good?
+  %input{:type => :hidden, :name => :oauth_token, :value => oauth_token}/
+  %button{:type => 'submit'} Yeah, okay.
 
 @@ new_oauth_consumer
 You want to be a consumer, eh?
 %ul
-  - @errors.each do |section|
-    -section.each do |error|
-      %li= section.to_s + " " + error
+  - if @errors
+    - @errors.each do |error|
+      %li= error
 %form{:method => 'post', :action => '/oauth/consumers'}
   %input{:name => 'consumer[callback]'}
   %button{:type=>'submit'} YES

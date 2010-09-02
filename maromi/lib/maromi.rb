@@ -3,6 +3,7 @@ require 'dm-migrations'
 require 'dm-validations'
 require 'oauth'
 require 'oauth/request_proxy/rack_request'
+require 'uri'
 
 
 load 'maromi/consumer.rb'
@@ -13,17 +14,28 @@ load 'maromi/helpers/sinatra.rb'
 load 'maromi/token.rb'
 load 'maromi/parameter_list.rb'
 load 'maromi/consumer_proxy.rb'
+load 'maromi/consumer_request_proxy.rb'
+load 'maromi/consumer_authorization_proxy.rb'
 
 class Maromi
   VERSION = '0.0.1'
   
-  class << self; attr_accessor :is_migrated; end
+  class << self; attr_accessor :is_migrated, :authorized_request; end
   
-  def initialize(app)
+  def initialize(app, connection_path = nil)
     @app = app
     @app.send(:helpers, Maromi::Helpers::Sinatra) if @app.is_a? Sinatra::Application
     DataMapper::Logger.new($stdout, :error)
-    DataMapper.setup(:default, 'postgres://localhost/dtb_dev')
+    unless DataMapper::Repository.adapters[:default]
+      if c = (ENV['DATABASE_URL'] || connection_path || (defined? Rails && ActiveRecord::Base.configurations[ENV['RACK_ENV']]))
+        if c.is_a? Hash
+          c = "#{c[:adapter]}://#{c[:username]}#{(p=c[:password]) ? ":#{p}" : ''}@#{c[:host]||'localhost'}/#{c[:database]}"
+        end
+        DataMapper.setup(:default, c)
+      else
+        raise "Maromi couldn't find a database to connect to. You should provide it with what it needs."
+      end
+    end
   end
   
   def call(env)
@@ -41,7 +53,7 @@ class Maromi
       add_headers
       response = @app.call(@env)
       clean_up
-      return response
+      return hijacked || response
     end
   end
   
@@ -63,8 +75,12 @@ class Maromi
   end
   
   def clean_up
-      
-      
+    if request = Maromi.authorized_request and request.callback_url != 'oob'
+      uri = URI.parse(request.callback_url)
+      uri.send(:set_query, [uri.query, 'oauth_verifier=' + request.verifier].reject(&:nil?).join('&'))
+      hijack [301, {'Location' => uri.to_s}, []]
+      Maromi.authorized_request = nil
+    end
   end
   
   def handle_request
@@ -84,8 +100,8 @@ class Maromi
     elsif !(r = Request.first(:token => request.parameters['oauth_token'], :consumer => c = Consumer.get(request.parameters['oauth_consumer_key'])))
       [401, {'Content-Type' => 'text/plain'}, ['Unable to find a request with token ' + request.parameters['oauth_token']]]
     elsif r.verified && r.verifier == request.parameters['oauth_verifier'] && OAuth::Signature.verify(request) {|_| [r.token_secret, c.shared_secret] }
-      a = Authorization.new(:consumer => c, :user_id => r.user_id, :token => Token.new(16), :secret => Token.new)
-      r.delete
+      a = Authorization.create(:consumer => c, :user_id => r.user_id, :token => Token.new(16), :secret => Token.new)
+      r.destroy
       p = ParameterList.new(:oauth_token => a.token, :oauth_token_secret => a.secret)
       [200, {'Content-Type' => 'application/x-www-form-urlencoded'}, [p.urlencoded]]
     else
@@ -112,6 +128,15 @@ class Maromi
     [400, {'Content-Type' => 'text/plain'}, ['Unknown signature method ' + e.message]]
   rescue DataMapper::ObjectNotFoundError
     [401, {'Content-Type' => 'text/plain'}, ['Could not find a consumer with token ' + request.parameters['oauth_consumer_key']]]
+  end
+  
+  def hijacked
+    @hijacked
+  end
+  
+  def hijack(response)
+    p 'hijacking with', response
+    @hijacked = response
   end
   
 end

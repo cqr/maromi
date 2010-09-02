@@ -20,6 +20,10 @@ class Maromi
       @consumer.consumer_key
     end
     
+    def authorized!(params)
+      
+    end
+        
     def inspect
       "#<Maromi::ConsumerProxy callback:#{callback.inspect} name:#{name.inspect}>"
     end
