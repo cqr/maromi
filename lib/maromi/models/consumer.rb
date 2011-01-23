@@ -20,7 +20,7 @@ class Maromi
     has n, :authorizations
     
     def callback_url=(callback)
-      attribute_set(:callback_url, callback.downcase)
+      attribute_set(:callback_url, callback.respond_to?(:downcase) ? callback.downcase : callback)
     end
   end
 end
