@@ -58,7 +58,7 @@ class Maromi
 
       # @return [Maromi::Consumer]a new consumer
       def new_consumer(params={})
-        consumer = Consumer.new(:secret => params[:secret] || Helpers::Token.new, :token => params[:token] || Helpers::Token.new(16), :callback_url => params[:callback])
+        consumer = Consumer.new(:secret => params[:secret] || Helpers::Token.new, :token => params[:token] || Helpers::Token.new(16), :callback_url => params[:callback], :name => params[:name])
       end
 
     end
