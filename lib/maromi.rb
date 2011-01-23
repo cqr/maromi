@@ -10,7 +10,6 @@ $: << File.dirname(__FILE__)
 # The Maromi Rack Middleware
 class Maromi
   
-  VERSION = '0.0.1'
   REQUIRED_OAUTH_PARAMETERS = %w( oauth_signature_method oauth_timestamp
                                   oauth_nonce oauth_consumer_key
                                   oauth_signature )
