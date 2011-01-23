@@ -8,8 +8,8 @@ Gem::Specification.new do |s|
   s.authors     = []
   s.email       = []
   s.homepage    = "http://rubygems.org/gems/maromi"
-  s.summary     = "TODO: Write a gem summary"
-  s.description = "TODO: Write a gem description"
+  s.summary     = "Maromi's a (Naive) Rack OAuth Middleware"
+  s.description = "Maromi sits between you and your app and handles OAuth stuff. Dependencies abound."
 
   s.required_rubygems_version = ">= 1.3.6"
   s.rubyforge_project         = "maromi"
